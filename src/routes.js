@@ -31,6 +31,7 @@ router.route("/")
 // ---------------------------------------------------
 // Edit below this line
 // ---------------------------------------------------
+
 router.route("/doctors")
     .get((req, res) => {
         console.log("GET /doctors");
@@ -63,7 +64,13 @@ router.route("/doctors/favorites")
 router.route("/doctors/:id")
     .get((req, res) => {
         console.log(`GET /doctors/${req.params.id}`);
-        res.status(501).send();
+        Doctor.findById(req.params.id)
+        .then(data => {
+            res.status(200).send(data)
+        })
+        .catch(err => {
+            res.status(404).send("doctor not found")
+        });
     })
     .patch((req, res) => {
         console.log(`PATCH /doctors/${req.params.id}`);
@@ -77,14 +84,34 @@ router.route("/doctors/:id")
 router.route("/doctors/:id/companions")
     .get((req, res) => {
         console.log(`GET /doctors/${req.params.id}/companions`);
-        res.status(501).send();
+        Companion.find({ doctors: { $elemMatch: { $eq: req.params.id } } })
+            .then(data => {
+                res.status(200).send(data);
+            })
+            .catch(err => {
+                res.status(404).send("companions not found");
+            });
     });
     
 
 router.route("/doctors/:id/goodparent")
     .get((req, res) => {
         console.log(`GET /doctors/${req.params.id}/goodparent`);
-        res.status(501).send();
+        Companion.find({ doctors: { $elemMatch: { $eq: req.params.id } } })
+        .then(companions => {
+            for (var companion of companions) {
+                // if one companion not alive
+                if (!companion.alive) {
+                    res.status(200).send(false);
+                    return
+                }
+            }
+            res.status(200).send(true);
+        })
+        .catch(err => {
+            res.status(404).send("invalid parent");
+            return
+        });
     });
 
 // optional:
@@ -114,7 +141,24 @@ router.route("/companions")
 router.route("/companions/crossover")
     .get((req, res) => {
         console.log(`GET /companions/crossover`);
-        res.status(501).send();
+        var companionList = []
+
+        Companion.find({})
+            .then((companions) => {
+                // go through each companion
+                for (var companion of companions) {
+                    // if they travelled with more than 1
+                    if (companion.doctors.length >= 2){
+                        companionList.push(companion)
+                    }
+                }
+                res.status(200).send(companionList);
+            })
+            .catch(err => {
+                res.status(404).send("companions not found")
+            });
+
+        
     });
 
 // optional:
@@ -131,7 +175,13 @@ router.route("/companions/favorites")
 router.route("/companions/:id")
     .get((req, res) => {
         console.log(`GET /companions/${req.params.id}`);
-        res.status(501).send();
+        Companion.findById(req.params.id)
+        .then(data => {
+            res.status(200).send(data)
+        })
+        .catch(err => {
+            res.status(404).send("companion not found")
+        });
     })
     .patch((req, res) => {
         console.log(`PATCH /companions/${req.params.id}`);
@@ -145,13 +195,55 @@ router.route("/companions/:id")
 router.route("/companions/:id/doctors")
     .get((req, res) => {
         console.log(`GET /companions/${req.params.id}/doctors`);
-        res.status(501).send();
+        var doctors = []
+
+        Companion.findById(req.params.id)
+            .then(async (companion) => {
+                for (var docID of companion.doctors){
+                    await Doctor.findById(docID)
+                        .then(doc => {
+                            doctors.push(doc)
+                        })
+                }
+            })
+            .then(() => {
+                res.status(200).send(doctors)
+            })
+            .catch(err => {
+                res.status(404).send("companion not found")
+            });
     });
 
 router.route("/companions/:id/friends")
     .get((req, res) => {
         console.log(`GET /companions/${req.params.id}/friends`);
-        res.status(501).send();
+
+        var friendList = []
+        // get the companion
+        Companion.findById(req.params.id)
+            .then(async (companion) => {
+                // get all potential friends
+                await Companion.find( { id: { $ne: req.params.id } } )
+                    .then(friends => {
+                        // go through each potential friend
+                        for (var friend of friends) {
+                            // make sure no double count
+                            if (friend._id == req.params.id) {
+                                continue
+                            }
+                            // if they share at least one season
+                            if (companion.seasons.some(r => friend.seasons.includes(r))) {
+                                friendList.push(friend)
+                            }
+                        }
+                    })
+                    .then(() => {
+                        res.status(200).send(friendList)
+                    })
+            })
+            .catch(err => {
+                res.status(404).send("companion not found")
+            });
     });
 
 // optional:
