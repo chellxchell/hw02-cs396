@@ -27,7 +27,7 @@ router.route("/")
             data: "App is running."
         });
     });
-    
+
 // ---------------------------------------------------
 // Edit below this line
 // ---------------------------------------------------
@@ -47,7 +47,23 @@ router.route("/doctors")
     })
     .post((req, res) => {
         console.log("POST /doctors");
-        res.status(501).send();
+        // check if name and seasons
+        if ((!req.body["name"]) || (!req.body["seasons"])) {
+            res.status(500).send({
+                request: req.body,
+                message: `Data missing.`
+            });
+            return
+        }
+
+        Doctor.create(req.body).save()
+            .then(doctor => {
+                res.status(201).send(doctor);
+            }).catch(err => {
+                res.status(404).send({
+                    message: `Invalid POST for doctor.`
+                });
+            });
     });
 
 // optional:
@@ -60,27 +76,44 @@ router.route("/doctors/favorites")
         console.log(`POST /doctors/favorites`);
         res.status(501).send();
     });
-    
+
 router.route("/doctors/:id")
     .get((req, res) => {
         console.log(`GET /doctors/${req.params.id}`);
         Doctor.findById(req.params.id)
-        .then(data => {
-            res.status(200).send(data)
-        })
-        .catch(err => {
-            res.status(404).send("doctor not found")
-        });
+            .then(data => {
+                res.status(200).send(data)
+            })
+            .catch(err => {
+                res.status(404).send("doctor not found")
+            });
     })
-    .patch((req, res) => {
+    .patch(async(req, res) => {
         console.log(`PATCH /doctors/${req.params.id}`);
-        res.status(501).send();
+
+        await Doctor.findByIdAndUpdate(req.params.id, req.body, {new: true})
+            .then(doctor => {
+                res.status(200).send(doctor);
+                return
+            }).catch(err => {
+                res.status(404).send({
+                    message: `Doctor not found / invalid post operation.`
+                });
+            });
     })
     .delete((req, res) => {
         console.log(`DELETE /doctors/${req.params.id}`);
-        res.status(501).send();
+        Doctor.findByIdAndDelete(req.params.id)
+        .then(doc => {
+            res.status(200).send(null);
+            return
+        }).catch(err => {
+            res.status(404).send({
+                message: `Companion not found.`
+            });
+        });
     });
-    
+
 router.route("/doctors/:id/companions")
     .get((req, res) => {
         console.log(`GET /doctors/${req.params.id}/companions`);
@@ -92,26 +125,26 @@ router.route("/doctors/:id/companions")
                 res.status(404).send("companions not found");
             });
     });
-    
+
 
 router.route("/doctors/:id/goodparent")
     .get((req, res) => {
         console.log(`GET /doctors/${req.params.id}/goodparent`);
         Companion.find({ doctors: { $elemMatch: { $eq: req.params.id } } })
-        .then(companions => {
-            for (var companion of companions) {
-                // if one companion not alive
-                if (!companion.alive) {
-                    res.status(200).send(false);
-                    return
+            .then(companions => {
+                for (var companion of companions) {
+                    // if one companion not alive
+                    if (!companion.alive) {
+                        res.status(200).send(false);
+                        return
+                    }
                 }
-            }
-            res.status(200).send(true);
-        })
-        .catch(err => {
-            res.status(404).send("invalid parent");
-            return
-        });
+                res.status(200).send(true);
+            })
+            .catch(err => {
+                res.status(404).send("invalid parent");
+                return
+            });
     });
 
 // optional:
@@ -135,7 +168,24 @@ router.route("/companions")
     })
     .post((req, res) => {
         console.log("POST /companions");
-        res.status(501).send();
+
+        // check if sufficient data
+        if ((!req.body["name"]) || (!req.body["seasons"]) || (!req.body["doctors"]) || (!req.body["seasons"]) || (!req.body["alive"])) {
+            res.status(500).send({
+                request: req.body,
+                message: `Data missing.`
+            });
+            return
+        }
+
+        Companion.create(req.body).save()
+            .then(companion => {
+                res.status(201).send(companion);
+            }).catch(err => {
+                res.status(404).send({
+                    message: `Invalid POST for companion.`
+                });
+            });
     });
 
 router.route("/companions/crossover")
@@ -148,7 +198,7 @@ router.route("/companions/crossover")
                 // go through each companion
                 for (var companion of companions) {
                     // if they travelled with more than 1
-                    if (companion.doctors.length >= 2){
+                    if (companion.doctors.length >= 2) {
                         companionList.push(companion)
                     }
                 }
@@ -158,7 +208,7 @@ router.route("/companions/crossover")
                 res.status(404).send("companions not found")
             });
 
-        
+
     });
 
 // optional:
@@ -176,20 +226,36 @@ router.route("/companions/:id")
     .get((req, res) => {
         console.log(`GET /companions/${req.params.id}`);
         Companion.findById(req.params.id)
-        .then(data => {
-            res.status(200).send(data)
-        })
-        .catch(err => {
-            res.status(404).send("companion not found")
-        });
+            .then(data => {
+                res.status(200).send(data)
+            })
+            .catch(err => {
+                res.status(404).send("companion not found")
+            });
     })
-    .patch((req, res) => {
+    .patch(async(req, res) => {
         console.log(`PATCH /companions/${req.params.id}`);
-        res.status(501).send();
+        await Companion.findByIdAndUpdate(req.params.id, req.body, {new: true})
+        .then(companion => {
+            res.status(200).send(companion);
+            return
+        }).catch(err => {
+            res.status(404).send({
+                message: `Companion not found / invalid post operation.`
+            });
+        });
     })
     .delete((req, res) => {
         console.log(`DELETE /companions/${req.params.id}`);
-        res.status(501).send();
+        Companion.findByIdAndDelete(req.params.id)
+        .then(companion => {
+            res.status(200).send(null);
+            return
+        }).catch(err => {
+            res.status(404).send({
+                message: `Companion not found.`
+            });
+        });
     });
 
 router.route("/companions/:id/doctors")
@@ -199,7 +265,7 @@ router.route("/companions/:id/doctors")
 
         Companion.findById(req.params.id)
             .then(async (companion) => {
-                for (var docID of companion.doctors){
+                for (var docID of companion.doctors) {
                     await Doctor.findById(docID)
                         .then(doc => {
                             doctors.push(doc)
@@ -223,7 +289,7 @@ router.route("/companions/:id/friends")
         Companion.findById(req.params.id)
             .then(async (companion) => {
                 // get all potential friends
-                await Companion.find( { id: { $ne: req.params.id } } )
+                await Companion.find({ id: { $ne: req.params.id } })
                     .then(friends => {
                         // go through each potential friend
                         for (var friend of friends) {
